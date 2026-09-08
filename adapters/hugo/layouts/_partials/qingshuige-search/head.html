@@ -1,0 +1,11 @@
+{{- $config := partial "qingshuige-search/config.html" .Site -}}
+{{- if $config.enabled -}}
+  {{- $defaults := resources.Get "qingshuige-search/hugo.css" -}}
+  {{- $panel := resources.Get "qingshuige-search/qingshuige-search.css" -}}
+  {{- if and $defaults $panel -}}
+    {{- $css := slice $defaults $panel | resources.Concat "qingshuige-search/search.css" | minify | fingerprint -}}
+    <link rel="stylesheet" href="{{ $css.RelPermalink }}" integrity="{{ $css.Data.Integrity }}" crossorigin="anonymous">
+  {{- else -}}
+    {{- errorf "qingshuige-search: CSS assets are missing; initialize the plugin submodule and run npm ci && npm run build inside it" -}}
+  {{- end -}}
+{{- end -}}

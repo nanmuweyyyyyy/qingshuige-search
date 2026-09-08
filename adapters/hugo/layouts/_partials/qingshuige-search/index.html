@@ -1,0 +1,32 @@
+{{- $site := .site -}}
+{{- $config := .config -}}
+{{- $documents := slice -}}
+{{- range $site.RegularPages -}}
+  {{- if and (not .Params.searchhidden) (or (not $config.sections) (in $config.sections .Section)) -}}
+    {{- $categories := .Params.categories | default (slice) -}}
+    {{- if not (reflect.IsSlice $categories) -}}
+      {{- $categories = slice $categories -}}
+    {{- end -}}
+    {{- $tags := .Params.tags | default (slice) -}}
+    {{- if not (reflect.IsSlice $tags) -}}
+      {{- $tags = slice $tags -}}
+    {{- end -}}
+    {{- $author := partial "qingshuige-search/author.html" (.Params.author | default $site.Params.author | default "") -}}
+    {{- $documents = $documents | append (dict
+      "id" .RelPermalink
+      "title" .Title
+      "author" $author
+      "date" (.Date.Format "2006-01-02T15:04:05Z07:00")
+      "categories" $categories
+      "tags" $tags
+      "content" (.Plain | htmlUnescape)
+      "url" .RelPermalink
+    ) -}}
+  {{- end -}}
+{{- end -}}
+{{- $target := $config.indexPath -}}
+{{- /* FromString caches by target path; languages must never share a target. */ -}}
+{{- if gt (len hugo.Sites) 1 -}}
+  {{- $target = printf "%s/%s" $site.Language.Lang $target -}}
+{{- end -}}
+{{- return (resources.FromString $target ($documents | jsonify)) -}}

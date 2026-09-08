@@ -1,6 +1,7 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { createSearchClient } from "../frontend/search/search-client.js"
+import { createSearchClient } from "../adapters/browser/index.js"
+import { createSearchClient as compatibilityClient } from "../frontend/search/search-client.js"
 
 const articles = [
   { title: "Hugo 搜索", author: "作者", content: "全文检索", categories: ["学", "学"], url: "/preview/blog/hugo/?from=search#part" },
@@ -87,4 +88,122 @@ test("script and external result URLs are rejected before navigation", async (t)
   setup(t, async () => response(payloads.shift()))
   await assert.rejects(createSearchClient("/unsafe.json").load(), /this site/)
   await assert.rejects(createSearchClient("/external.json").load(), /this site/)
+})
+
+test("the legacy client entry point uses the framework-independent browser adapter", () => {
+  assert.equal(createSearchClient, compatibilityClient)
+})
+
+test("an injected fetch and baseUrl work without window and resolve relative URLs", async () => {
+  assert.equal(globalThis.window, undefined)
+  let requestedUrl
+  const client = createSearchClient("data/search.json", {
+    baseUrl: "https://portable.test/docs/",
+    fetch: async (url) => {
+      requestedUrl = url
+      return response([{ ...articles[0], url: "posts/hugo/?q=1#section" }])
+    }
+  })
+  const results = await client.search("Hugo")
+  assert.equal(requestedUrl, "https://portable.test/docs/data/search.json")
+  assert.equal(results[0].article.url, "/docs/posts/hugo/?q=1#section")
+})
+
+test("engine options reach the engine and configured clients cannot share incompatible indexes", async () => {
+  const fetcher = async () => response([
+    { ...articles[0], content: "a long text for snippet configuration" },
+    { ...articles[1], title: "Hugo 诗歌" }
+  ])
+  const config = { baseUrl: "https://options.test/", fetch: fetcher }
+  const one = createSearchClient("/search.json", { ...config, engineOptions: { maxResults: 1, snippetLength: 8 } })
+  const two = createSearchClient("/search.json", { ...config, engineOptions: { maxResults: 2 } })
+  assert.notEqual(one, two)
+  const results = await one.search("Hugo")
+  assert.equal(results.length, 1)
+  assert.ok(results[0].snippet.length <= 10)
+  assert.equal((await two.search("Hugo")).length, 2)
+  assert.equal((await one.search("Hugo", { limit: 2 })).length, 2)
+})
+
+test("default clients are isolated across site origins and relative base paths", async (t) => {
+  const urls = []
+  setup(t, async (url) => {
+    urls.push(url)
+    return response([{ ...articles[0], url: "article/" }])
+  })
+  const first = createSearchClient("/scoped.json")
+  globalThis.window.location = new URL("https://another.test/docs/")
+  const second = createSearchClient("/scoped.json")
+  globalThis.window.location = new URL("https://another.test/archive/")
+  const third = createSearchClient("/scoped.json")
+  assert.notEqual(first, second)
+  assert.notEqual(second, third)
+  assert.equal((await first.search("Hugo"))[0].article.url, "/preview/article/")
+  assert.equal((await second.search("Hugo"))[0].article.url, "/docs/article/")
+  assert.equal((await third.search("Hugo"))[0].article.url, "/archive/article/")
+  assert.deepEqual(urls, ["https://example.test/scoped.json", "https://another.test/scoped.json", "https://another.test/scoped.json"])
+})
+
+test("unsafe index URLs are rejected before fetching", () => {
+  let requests = 0
+  const options = { baseUrl: "https://safe.test/", fetch: async () => { requests++; return response() } }
+  for (const url of ["javascript:alert(1)", "//other.test/index.json", "http://safe.test/index.json"]) {
+    assert.throws(() => createSearchClient(url, options), /this site/)
+  }
+  assert.throws(() => createSearchClient("/index.json", { ...options, baseUrl: "file:///tmp/index.html" }), /HTTP/)
+  assert.equal(requests, 0)
+})
+
+test("categories use the core's normalized article model", async () => {
+  const client = createSearchClient("/categories.json", {
+    baseUrl: "https://categories.test/",
+    fetch: async () => response([
+      { ...articles[0], categories: " 技术 " },
+      { ...articles[1], categories: ["技术", " 诗 ", "", null] }
+    ])
+  })
+  assert.deepEqual(new Set(await client.categories()), new Set(["技术", "诗"]))
+  assert.equal((await client.search("Hugo", { category: "技术" })).length, 1)
+})
+
+test("article field normalization stays in the core and invalid engine strategies are not coerced", async () => {
+  const options = {
+    baseUrl: "https://model.test/",
+    fetch: async () => response([{ content: "Hugo body-only document", url: "/article/" }])
+  }
+  const [result] = await createSearchClient("/model.json", options).search("Hugo")
+  assert.equal(result.article.title, "")
+  assert.equal(result.article.url, "/article/")
+  await assert.rejects(createSearchClient("/model.json", { ...options, engineOptions: { weights: [] } }).load(), /weights/)
+})
+
+test("same-origin double-slash paths cannot become cross-origin navigation links", async () => {
+  const client = createSearchClient("/paths.json", {
+    baseUrl: "https://safe.test/",
+    fetch: async () => response([{ ...articles[0], url: "https://safe.test//external.test/post/" }])
+  })
+  const [result] = await client.search("Hugo")
+  assert.equal(new URL(result.article.url, "https://safe.test/").origin, "https://safe.test")
+  assert.equal(new URL(result.article.url, "https://safe.test/").pathname, "//external.test/post/")
+})
+
+test("timeout retries survive a fetcher that ignores abort and a late response cannot replace the new index", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] })
+  let finishOldRequest
+  let requests = 0
+  const client = createSearchClient("/timeout-late.json", {
+    baseUrl: "https://timeout.test/",
+    timeoutMs: 25,
+    fetch: () => ++requests === 1
+      ? new Promise((resolve) => { finishOldRequest = resolve })
+      : Promise.resolve(response())
+  })
+  const pending = assert.rejects(client.load(), { name: "AbortError" })
+  t.mock.timers.tick(25)
+  await pending
+  assert.equal((await client.search("Hugo")).length, 1)
+  finishOldRequest(response([]))
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.equal((await client.search("Hugo")).length, 1)
+  assert.equal(requests, 2)
 })

@@ -1,0 +1,41 @@
+{{- /* Hugo lowercases params keys. Rebuild the public JavaScript option names. */ -}}
+{{- $source := .Params.qingshuigesearch | default (dict) -}}
+{{- $enabled := $source.enabled | default false -}}
+{{- $indexPath := $source.indexpath | default "search-index.json" -}}
+{{- $sections := $source.sections | default (slice) -}}
+{{- if $enabled -}}
+  {{- if or (not (reflect.IsSlice $sections)) (not (reflect.IsMap ($source.engine | default (dict)))) (not (reflect.IsMap ($source.ui | default (dict)))) -}}
+    {{- errorf "qingshuige-search: sections must be a list; engine and ui must be maps" -}}
+  {{- end -}}
+  {{- if or (not (findRE `^[^/\\?#:]+(?:/[^/\\?#:]+)*\.json$` $indexPath)) (in (split $indexPath "/") "..") (in (split $indexPath "/") ".") -}}
+    {{- errorf "qingshuige-search: indexPath must be a relative .json path without dot segments, a query, or a fragment; got %q" $indexPath -}}
+  {{- end -}}
+{{- end -}}
+{{- $engine := dict -}}
+{{- $engineSource := $source.engine | default (dict) -}}
+{{- range slice "hanGramSize" "minWordLength" "maxDocumentFrequencyRatio" "maxResults" "snippetLength" "matchMode" -}}
+  {{- $key := lower . -}}
+  {{- if isset $engineSource $key -}}
+    {{- $engine = merge $engine (dict . (index $engineSource $key)) -}}
+  {{- end -}}
+{{- end -}}
+{{- $weights := dict -}}
+{{- $weightSource := $engineSource.weights | default (dict) -}}
+{{- range slice "titleExact" "titlePrefix" "titleContains" "authorExact" "authorContains" "coverage" "titlePhrase" "bodyPhrase" -}}
+  {{- $key := lower . -}}
+  {{- if isset $weightSource $key -}}
+    {{- $weights = merge $weights (dict . (index $weightSource $key)) -}}
+  {{- end -}}
+{{- end -}}
+{{- with $weights -}}
+  {{- $engine = merge $engine (dict "weights" .) -}}
+{{- end -}}
+{{- $ui := dict -}}
+{{- $uiSource := $source.ui | default (dict) -}}
+{{- range slice "resultLimit" "debounceMs" -}}
+  {{- $key := lower . -}}
+  {{- if isset $uiSource $key -}}
+    {{- $ui = merge $ui (dict . (index $uiSource $key)) -}}
+  {{- end -}}
+{{- end -}}
+{{- return (dict "enabled" $enabled "indexPath" $indexPath "sections" $sections "engine" $engine "ui" $ui) -}}

@@ -3,9 +3,13 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { createSearchClient } from "../search/search-client.js"
 
 const props = defineProps({
-  indexUrl: { type: String, default: "/search-index.json" }
+  indexUrl: { type: String, default: "/search-index.json" },
+  engineOptions: { type: Object, default: () => ({}) },
+  resultLimit: { type: Number, default: undefined },
+  debounceMs: { type: Number, default: 180 }
 })
 
+const layer = ref(null)
 const dialog = ref(null)
 const input = ref(null)
 const open = ref(false)
@@ -23,8 +27,12 @@ let debounceTimer = null
 let requestVersion = 0
 let lastTrigger = null
 let restorePage = null
-const resultLimit = 20
-const client = createSearchClient(props.indexUrl)
+const resultLimit = computed(() => {
+  const value = props.resultLimit ?? props.engineOptions.maxResults
+  return Number.isInteger(value) && value > 0 ? value : 20
+})
+const debounceMs = computed(() => Number.isFinite(props.debounceMs) && props.debounceMs >= 0 ? props.debounceMs : 180)
+const client = createSearchClient(props.indexUrl, { engineOptions: props.engineOptions })
 
 const statusText = computed(() => {
   if (loading.value) return ready.value ? "正在搜索…" : "正在准备搜索索引…"
@@ -32,7 +40,7 @@ const statusText = computed(() => {
   if (composing.value) return "请完成关键词输入"
   if (!query.value.trim()) return "输入标题、作者、日期或正文关键词开始搜索"
   if (results.value.length === 0) return "没有找到与「" + query.value.trim() + "」相关的文章"
-  if (hasMore.value) return "显示前 " + resultLimit + " 篇相关文章，可继续输入或筛选分类"
+  if (hasMore.value) return "显示前 " + resultLimit.value + " 篇相关文章，可继续输入或筛选分类"
   return "找到 " + results.value.length + " 篇相关文章"
 })
 
@@ -100,11 +108,11 @@ async function runSearch() {
     categories.value = nextCategories
     ready.value = true
     const nextResults = value
-      ? await client.search(value, { category: category || undefined, limit: resultLimit + 1 })
+      ? await client.search(value, { category: category || undefined, limit: resultLimit.value + 1 })
       : []
     if (version !== requestVersion || !open.value) return
-    hasMore.value = nextResults.length > resultLimit
-    results.value = nextResults.slice(0, resultLimit)
+    hasMore.value = nextResults.length > resultLimit.value
+    results.value = nextResults.slice(0, resultLimit.value)
     selectedIndex.value = results.value.length ? 0 : -1
   } catch (cause) {
     if (version !== requestVersion || !open.value) return
@@ -124,7 +132,7 @@ function scheduleSearch() {
   if (!open.value || composing.value) return
   if (!query.value.trim() && ready.value) return
   loading.value = true
-  debounceTimer = window.setTimeout(runSearch, 180)
+  debounceTimer = window.setTimeout(runSearch, debounceMs.value)
 }
 
 function setTriggerExpanded(expanded) {
@@ -134,6 +142,7 @@ function setTriggerExpanded(expanded) {
 }
 
 function lockPage() {
+  if (restorePage || !layer.value) return
   const scrollY = window.scrollY
   const body = document.body
   const previous = {}
@@ -147,8 +156,15 @@ function lockPage() {
   body.style.width = "100%"
   body.style.overflow = "hidden"
 
-  const background = [...document.querySelectorAll(".site-header, .site-main, .site-footer, .skip-link")]
-    .map((element) => ({ element, inert: element.inert }))
+  const background = []
+  function collectBackground(parent) {
+    for (const element of parent.children) {
+      if (element === layer.value) continue
+      if (element.contains(layer.value)) collectBackground(element)
+      else background.push({ element, inert: element.inert })
+    }
+  }
+  collectBackground(body)
   for (const { element } of background) element.inert = true
 
   restorePage = () => {
@@ -168,9 +184,12 @@ function openSearch(source = null) {
   open.value = true
   composing.value = false
   setTriggerExpanded(true)
-  lockPage()
   void runSearch()
-  nextTick(() => { if (open.value) input.value?.focus({ preventScroll: true }) })
+  nextTick(() => {
+    if (!open.value) return
+    lockPage()
+    input.value?.focus({ preventScroll: true })
+  })
 }
 
 function closeSearch() {
@@ -286,7 +305,7 @@ onBeforeUnmount(() => {
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="qsg-search-layer" @pointerdown.self="closeSearch">
+    <div v-if="open" ref="layer" class="qsg-search-layer" @pointerdown.self="closeSearch">
       <section
         id="qsg-search-dialog"
         ref="dialog"
@@ -427,9 +446,9 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  color: var(--qsg-ink);
+  color: var(--qsg-ink, #203746);
   background: rgba(255, 255, 255, 0.985);
-  border: 1px solid var(--qsg-border);
+  border: 1px solid var(--qsg-border, #dce5ec);
   border-radius: 1rem;
   box-shadow: 0 1.5rem 4rem rgba(17, 45, 65, 0.25);
 }
@@ -440,7 +459,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.65rem;
   padding: 0.85rem;
-  border-bottom: 1px solid var(--qsg-border);
+  border-bottom: 1px solid var(--qsg-border, #dce5ec);
 }
 
 .qsg-search-input-wrap {
@@ -450,14 +469,14 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.65rem;
   padding: 0 0.75rem;
-  border: 1px solid var(--qsg-border);
+  border: 1px solid var(--qsg-border, #dce5ec);
   border-radius: 0.75rem;
   background: #fff;
 }
 
 .qsg-search-input-wrap:focus-within {
-  border-color: var(--qsg-blue-500);
-  box-shadow: 0 0 0 2px var(--qsg-blue-100);
+  border-color: var(--qsg-blue-500, #4782ab);
+  box-shadow: 0 0 0 2px var(--qsg-blue-100, #edf5fb);
 }
 
 .qsg-search-input {
@@ -465,7 +484,7 @@ onBeforeUnmount(() => {
   min-height: 2.8rem;
   border: 0;
   outline: 0;
-  color: var(--qsg-ink);
+  color: var(--qsg-ink, #203746);
   background: transparent;
   font: inherit;
 }
@@ -479,7 +498,7 @@ onBeforeUnmount(() => {
   height: 2.65rem;
   border: 0;
   border-radius: 0.7rem;
-  color: var(--qsg-ink-soft);
+  color: var(--qsg-ink-soft, #587080);
   background: transparent;
   font-size: 1.7rem;
   line-height: 1;
@@ -488,8 +507,8 @@ onBeforeUnmount(() => {
 
 .qsg-search-close:hover,
 .qsg-search-close:focus-visible {
-  color: var(--qsg-ink);
-  background: var(--qsg-blue-100);
+  color: var(--qsg-ink, #203746);
+  background: var(--qsg-blue-100, #edf5fb);
 }
 
 .qsg-search-filters {
@@ -503,10 +522,10 @@ onBeforeUnmount(() => {
 
 .qsg-search-filter {
   flex: 0 0 auto;
-  border: 1px solid var(--qsg-border);
+  border: 1px solid var(--qsg-border, #dce5ec);
   border-radius: 999px;
   padding: 0.32rem 0.7rem;
-  color: var(--qsg-ink-soft);
+  color: var(--qsg-ink-soft, #587080);
   background: #fff;
   font: inherit;
   font-size: 0.86rem;
@@ -516,15 +535,15 @@ onBeforeUnmount(() => {
 .qsg-search-filter:hover,
 .qsg-search-filter:focus-visible,
 .qsg-search-filter.is-active {
-  border-color: var(--qsg-blue-500);
-  color: var(--qsg-blue-800);
-  background: var(--qsg-blue-100);
+  border-color: var(--qsg-blue-500, #4782ab);
+  color: var(--qsg-blue-800, #234b69);
+  background: var(--qsg-blue-100, #edf5fb);
 }
 
 .qsg-search-status {
   flex: 0 0 auto;
   padding: 0.4rem 1rem 0.65rem;
-  color: var(--qsg-ink-soft);
+  color: var(--qsg-ink-soft, #587080);
   font-size: 0.86rem;
 }
 
@@ -554,12 +573,12 @@ onBeforeUnmount(() => {
 .qsg-search-result.is-selected {
   outline: 0;
   border-color: rgba(71, 130, 171, 0.18);
-  background: var(--qsg-blue-100);
+  background: var(--qsg-blue-100, #edf5fb);
 }
 
 .qsg-search-result-title {
   margin: 0;
-  color: var(--qsg-blue-800);
+  color: var(--qsg-blue-800, #234b69);
   font-size: 1rem;
   line-height: 1.45;
 }
@@ -569,7 +588,7 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   gap: 0.25rem 0.65rem;
   margin-top: 0.3rem;
-  color: var(--qsg-ink-soft);
+  color: var(--qsg-ink-soft, #587080);
   font-size: 0.78rem;
 }
 
@@ -581,7 +600,7 @@ onBeforeUnmount(() => {
 
 .qsg-search-snippet {
   margin: 0.42rem 0 0;
-  color: var(--qsg-ink-soft);
+  color: var(--qsg-ink-soft, #587080);
   font-size: 0.88rem;
   line-height: 1.6;
 }
@@ -599,9 +618,9 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   gap: 0.6rem 1rem;
   padding: 0.65rem 0.9rem;
-  color: var(--qsg-ink-soft);
+  color: var(--qsg-ink-soft, #587080);
   background: rgba(246, 249, 251, 0.92);
-  border-top: 1px solid var(--qsg-border);
+  border-top: 1px solid var(--qsg-border, #dce5ec);
   font-size: 0.75rem;
 }
 
@@ -613,9 +632,9 @@ onBeforeUnmount(() => {
   justify-content: center;
   margin-right: 0.18rem;
   padding: 0 0.28rem;
-  border: 1px solid var(--qsg-border);
+  border: 1px solid var(--qsg-border, #dce5ec);
   border-radius: 0.3rem;
-  color: var(--qsg-ink-soft);
+  color: var(--qsg-ink-soft, #587080);
   background: #fff;
   font: inherit;
   box-shadow: 0 1px 0 rgba(17, 45, 65, 0.08);

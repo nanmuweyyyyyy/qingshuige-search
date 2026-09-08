@@ -1,3 +1,5 @@
+import { isCalendarDate } from "./article.js"
+
 /**
  * Parse only explicit date-like queries. Mixed natural-language text is not
  * silently interpreted as a date.
@@ -10,11 +12,13 @@ export function parseDateQuery(query) {
 
   match = q.match(/^(\d{4})[-/.年](\d{1,2})(?:月)?$/u)
   if (match) {
+    if (!isCalendarDate(Number(match[1]), Number(match[2]), 1)) return null
     return { year: Number(match[1]), month: Number(match[2]) }
   }
 
   match = q.match(/^(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})(?:日)?$/u)
   if (match) {
+    if (!isCalendarDate(Number(match[1]), Number(match[2]), Number(match[3]))) return null
     return {
       year: Number(match[1]),
       month: Number(match[2]),

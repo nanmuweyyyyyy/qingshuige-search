@@ -1,0 +1,16 @@
+{{- /* Normalize common Hugo author conventions into the Article string field. */ -}}
+{{- $author := "" -}}
+{{- if reflect.IsMap . -}}
+  {{- $author = .name | default "" -}}
+{{- else if reflect.IsSlice . -}}
+  {{- $names := slice -}}
+  {{- range . -}}
+    {{- with partial "qingshuige-search/author.html" . -}}
+      {{- $names = $names | append . -}}
+    {{- end -}}
+  {{- end -}}
+  {{- $author = delimit $names ", " -}}
+{{- else -}}
+  {{- $author = printf "%v" . -}}
+{{- end -}}
+{{- return $author -}}

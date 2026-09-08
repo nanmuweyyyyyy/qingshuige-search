@@ -1,0 +1,11 @@
+{{- $config := partial "qingshuige-search/config.html" .Site -}}
+{{- if $config.enabled -}}
+  {{- $index := partialCached "qingshuige-search/index.html" (dict "site" .Site "config" $config) .Site.Language.Lang .Site.BaseURL ($config | jsonify) -}}
+  <div data-qsg-search data-search-index-url="{{ $index.RelPermalink }}" data-search-options="{{ $config.engine | jsonify }}" data-search-ui="{{ $config.ui | jsonify }}"></div>
+  {{- with resources.Get "qingshuige-search/qingshuige-search.js" -}}
+    {{- $script := . | fingerprint -}}
+    <script type="module" src="{{ $script.RelPermalink }}" integrity="{{ $script.Data.Integrity }}" crossorigin="anonymous"></script>
+  {{- else -}}
+    {{- errorf "qingshuige-search: JavaScript assets are missing; initialize the plugin submodule and run npm ci && npm run build inside it" -}}
+  {{- end -}}
+{{- end -}}

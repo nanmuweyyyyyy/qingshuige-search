@@ -1,0 +1,28 @@
+# Example for a plugin checked out at plugins/qingshuige-search.
+# Merge the mounts into an existing module.mounts list instead of replacing it.
+module:
+  mounts:
+    - source: layouts
+      target: layouts
+    - source: assets
+      target: assets
+    - source: plugins/qingshuige-search/adapters/hugo/layouts
+      target: layouts
+    - source: plugins/qingshuige-search/adapters/hugo/assets
+      target: assets
+    - source: plugins/qingshuige-search/assets
+      target: assets
+
+params:
+  qingshuigeSearch:
+    enabled: true
+    indexPath: search-index.json
+    sections: []
+    engine:
+      maxResults: 20
+      snippetLength: 110
+      maxDocumentFrequencyRatio: 0.6
+    ui:
+      debounceMs: 120
+      # Optional: override engine.maxResults only for the panel.
+      # resultLimit: 20

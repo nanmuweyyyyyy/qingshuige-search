@@ -21,13 +21,13 @@ export default defineConfig(({ command }) => ({
     }
   },
   build: {
-    outDir: "assets/qingshuige-vue",
+    outDir: "assets/qingshuige-search",
     emptyOutDir: true,
     lib: {
       entry: resolve(import.meta.dirname, "frontend/main.js"),
       formats: ["es"],
-      fileName: "qingshuige-vue",
-      cssFileName: "qingshuige-vue"
+      fileName: "qingshuige-search",
+      cssFileName: "qingshuige-search"
     }
   }
 }))

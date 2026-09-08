@@ -1,19 +1,6 @@
 import { normalizeText } from "./normalizer.js"
 import { tokenize } from "./tokenizer.js"
-
-function parseDate(value) {
-  const date = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return { timestamp: Number.NEGATIVE_INFINITY, year: null, month: null, day: null }
-  }
-
-  return {
-    timestamp: date.getTime(),
-    year: date.getUTCFullYear(),
-    month: date.getUTCMonth() + 1,
-    day: date.getUTCDate()
-  }
-}
+import { normalizeArticles, parseArticleDate } from "./article.js"
 
 function pushToIndex(index, key, docId) {
   const list = index.get(key)
@@ -30,23 +17,21 @@ export function buildIndexes(articles, options = {}) {
   const categoryIndex = new Map()
   const bodyIndex = new Map()
 
-  articles.forEach((article, docId) => {
+  normalizeArticles(articles).forEach((article, docId) => {
     const normalized = {
       title: normalizeText(article.title),
       author: normalizeText(article.author),
       content: normalizeText(article.content)
     }
 
-    const categories = Array.isArray(article.categories)
-      ? article.categories.map(normalizeText).filter(Boolean)
-      : []
+    const categories = [...new Set(article.categories.map(normalizeText).filter(Boolean))]
 
     const document = {
       docId,
       externalId: article.id ?? docId,
       article,
       normalized,
-      date: parseDate(article.date),
+      date: parseArticleDate(article.date),
       categories
     }
 
@@ -56,13 +41,21 @@ export function buildIndexes(articles, options = {}) {
     for (const category of categories) pushToIndex(categoryIndex, category, docId)
 
     const perToken = new Map()
-    for (const occurrence of tokenize(article.content, options)) {
-      const entry = perToken.get(occurrence.value)
+    const occurrences = options.tokenizer
+      ? options.tokenizer.tokenize(article.content, options) : tokenize(article.content, options)
+    if (!Array.isArray(occurrences)) throw new TypeError("tokenizer.tokenize must return an array")
+    for (const occurrence of occurrences) {
+      if (!occurrence || typeof occurrence.value !== "string" || !occurrence.value.trim()
+        || !Number.isSafeInteger(occurrence.position) || occurrence.position < 0 || occurrence.position > article.content.length) {
+        throw new TypeError("Token occurrences must contain a non-empty value and a valid UTF-16 position")
+      }
+      const value = normalizeText(occurrence.value)
+      const entry = perToken.get(value)
       if (entry) {
         entry.frequency += 1
         entry.positions.push(occurrence.position)
       } else {
-        perToken.set(occurrence.value, {
+        perToken.set(value, {
           articleId: docId,
           frequency: 1,
           positions: [occurrence.position]

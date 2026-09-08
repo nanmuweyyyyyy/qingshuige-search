@@ -1,0 +1,61 @@
+/* Defaults are scoped to plugin elements; host themes can override them. */
+.qsg-search-layer {
+  --qsg-ink: #17212b;
+  --qsg-ink-soft: #596b79;
+  --qsg-border: #d9e1e8;
+  --qsg-blue-100: #edf4fa;
+  --qsg-blue-500: #477aa4;
+  --qsg-blue-800: #35678f;
+}
+
+.qsg-search-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .45rem;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  padding: .5rem;
+  border: 0;
+  border-radius: .65rem;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+}
+
+.qsg-search-trigger svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.qsg-search-trigger:hover,
+.qsg-search-trigger[aria-expanded="true"] {
+  background: #477aa426;
+}
+
+.qsg-search-trigger:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+.qsg-search-trigger--floating {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(4.5rem, calc(env(safe-area-inset-bottom) + 3.5rem));
+  z-index: 90;
+  padding: .8rem 1rem;
+  color: #17212b;
+  background: #fff;
+  border: 1px solid #d9e1e8;
+  box-shadow: 0 .25rem 1rem #17212b26;
+}
+
+.qsg-search-trigger--floating:hover {
+  background: #edf4fa;
+}

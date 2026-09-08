@@ -1,13 +1,21 @@
 {
   "name": "qingshuige-search",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Framework-agnostic local full-text search engine for static sites, with CJK bigram tokenization and inverted indexes.",
   "type": "module",
   "exports": {
-    ".": "./src/index.js"
+    ".": "./src/index.js",
+    "./browser": "./adapters/browser/index.js",
+    "./vue": "./frontend/components/SearchPanel.vue"
   },
   "files": [
     "src",
+    "adapters",
+    "frontend",
+    "assets/qingshuige-search",
+    "docs/API.zh-CN.md",
+    "docs/ARCHITECTURE.zh-CN.md",
+    "THIRD_PARTY_NOTICES.md",
     "README.md",
     "LICENSE"
   ],
@@ -16,7 +24,8 @@
     "build": "vite build",
     "pretest": "npm run build",
     "test": "node --test test/*.test.js",
-    "test:core": "node --test test/search-engine.test.js test/tokenizer.test.js",
+    "test:core": "node --test test/search-engine.test.js test/tokenizer.test.js test/core-api.test.js",
+    "test:hugo": "node --test test/hugo-adapter.test.js",
     "benchmark": "node --expose-gc benchmark/run.mjs"
   },
   "keywords": [
@@ -28,6 +37,10 @@
     "inverted-index"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nanmuweyyyyyy/qingshuige-search.git"
+  },
   "engines": {
     "node": ">=22.12.0"
   },
