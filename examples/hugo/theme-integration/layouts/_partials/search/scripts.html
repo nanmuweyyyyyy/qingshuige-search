@@ -1,0 +1,12 @@
+{{- with site.Params.qingshuige.search -}}
+  {{- if .enabled -}}
+    <div data-vue-component="SearchPanel" data-search-index-url="{{ .indexUrl | default "search-index.json" | relURL }}"></div>
+    {{- with resources.Get "qingshuige-vue/qingshuige-vue.js" -}}
+      {{- with . | fingerprint -}}
+        <script type="module" src="{{ .RelPermalink }}" integrity="{{ .Data.Integrity }}" crossorigin="anonymous"></script>
+      {{- end -}}
+    {{- else -}}
+      {{- errorf "Search JavaScript is missing. Run npm ci and npm run build in qingshuige-search." -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}

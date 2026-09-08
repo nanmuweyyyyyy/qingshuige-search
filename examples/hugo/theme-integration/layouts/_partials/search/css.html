@@ -1,0 +1,9 @@
+{{- if site.Params.qingshuige.search.enabled -}}
+  {{- with resources.Get "qingshuige-vue/qingshuige-vue.css" -}}
+    {{- with . | fingerprint -}}
+      <link rel="stylesheet" href="{{ .RelPermalink }}" integrity="{{ .Data.Integrity }}" crossorigin="anonymous">
+    {{- end -}}
+  {{- else -}}
+    {{- errorf "Search CSS is missing. Run npm ci and npm run build in qingshuige-search." -}}
+  {{- end -}}
+{{- end -}}

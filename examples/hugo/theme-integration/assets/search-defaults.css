@@ -1,0 +1,13 @@
+/* 独立宿主的默认值；可在此文件之后加载自己的覆盖样式。 */
+.qsg-search-layer {
+  --qsg-ink: #17212b;
+  --qsg-ink-soft: #6f7d89;
+  --qsg-border: #d9e1e8;
+  --qsg-blue-100: #edf4fa;
+  --qsg-blue-500: #477aa4;
+  --qsg-blue-800: #35678f;
+}
+
+.site-nav__search-trigger {
+  --qsg-transition-fast: 160ms ease;
+}

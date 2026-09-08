@@ -1,0 +1,4 @@
+{{- $viteDev := and hugo.IsDevelopment site.Params.qingshuige.viteDevServer -}}
+{{- if not $viteDev -}}
+  <link rel="stylesheet" href="{{ "qingshuige-vue/qingshuige-vue.css" | relURL }}">
+{{- end -}}

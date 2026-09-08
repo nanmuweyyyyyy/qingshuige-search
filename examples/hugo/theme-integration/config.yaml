@@ -1,0 +1,21 @@
+# 主动接入搜索时，合并到宿主 Hugo 站点配置。
+params:
+  qingshuige:
+    search:
+      enabled: true
+      indexUrl: search-index.json
+      # 根据宿主内容目录调整；清空列表时索引所有普通页面。
+      sections: [blog, almanac]
+
+outputFormats:
+  SearchIndex:
+    mediaType: application/json
+    baseName: search-index
+    isPlainText: true
+    notAlternative: true
+
+outputs:
+  home:
+    - html
+    - rss
+    - SearchIndex

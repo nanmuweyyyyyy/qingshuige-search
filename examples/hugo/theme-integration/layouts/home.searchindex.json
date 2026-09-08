@@ -1,0 +1,21 @@
+{{- $documents := slice -}}
+{{- $sections := site.Params.qingshuige.search.sections | default (slice) -}}
+{{- range site.RegularPages -}}
+  {{- if and (not .Params.searchHidden) (or (not $sections) (in $sections .Section)) -}}
+    {{- $categories := .Params.categories | default (slice) -}}
+    {{- if not (reflect.IsSlice $categories) -}}
+      {{- $categories = slice $categories -}}
+    {{- end -}}
+    {{- $author := .Params.author | default site.Params.author.name | default "" -}}
+    {{- $documents = $documents | append (dict
+      "id" .RelPermalink
+      "title" .Title
+      "author" $author
+      "date" (.Date.Format "2006-01-02T15:04:05Z07:00")
+      "categories" $categories
+      "content" .Plain
+      "url" .RelPermalink
+    ) -}}
+  {{- end -}}
+{{- end -}}
+{{- $documents | jsonify -}}

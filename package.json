@@ -1,0 +1,40 @@
+{
+  "name": "qingshuige-search",
+  "version": "0.1.0",
+  "description": "Framework-agnostic local full-text search engine for static sites, with CJK bigram tokenization and inverted indexes.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "pretest": "npm run build",
+    "test": "node --test test/*.test.js",
+    "test:core": "node --test test/search-engine.test.js test/tokenizer.test.js",
+    "benchmark": "node --expose-gc benchmark/run.mjs"
+  },
+  "keywords": [
+    "search",
+    "full-text-search",
+    "static-site",
+    "hugo",
+    "cjk",
+    "inverted-index"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "6.0.8",
+    "jsdom": "26.1.0",
+    "vite": "8.2.2",
+    "vue": "3.5.41"
+  }
+}
